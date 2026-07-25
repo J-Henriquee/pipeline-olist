@@ -1,1 +1,15 @@
+# Arquivo de credenciais da AWS
 .env
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Cache do Python
+__pycache__/
+.pytest_cache/
+
+# Dados brutos pesados (não versionar dados no git)
+data/raw/*
+!data/raw/.gitkeep
