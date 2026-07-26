@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
-
-
+from schemas import schema_customers, schema_orders, schema_category_translation, schema_geolocation, schema_order_items, schema_order_payments, schema_order_reviews, schema_products, schema_sellers
+import pyspark.sql.functions as F
 def get_spark_session():
     # Carrega suas chaves da AWS do .env
     load_dotenv()
@@ -19,3 +19,34 @@ def get_spark_session():
     print("🔥 Sessão PySpark iniciada com sucesso!")
     print(f"Versão do Spark: {spark.version}")
     return spark
+def process_raw_to_silver(spark, file_name, schema, clean_function):
+    path_raw = f"s3a://olist-datalake-nean/raw/olist/{file_name}"
+    silver_path = f"s3a://olist-datalake-nean/silver/{file_name.replace('.csv', '')}"
+    
+    print(f"Lendo: {file_name}...")
+    df_raw = spark.read.csv(path_raw, schema=schema, header=True)
+    
+    print("Aplicando limpeza...")
+    df_clean = clean_function(df_raw)
+    
+    print(f"Salvando Parquet em: {silver_path}...")
+    df_clean.write.parquet(silver_path, mode="overwrite")
+    print("Sucesso!\n")
+
+def clean_customers(df):
+    df.show(5)
+    df.printSchema(1)
+
+    return df 
+
+
+
+if __name__ == "__main__":
+    spark = get_spark_session()
+    
+    process_raw_to_silver(
+        spark=spark,
+        file_name="olist_customers_dataset.csv", 
+        schema=schema_customers,                 
+        clean_function=clean_customers           
+    )
