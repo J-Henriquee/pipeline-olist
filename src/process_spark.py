@@ -34,31 +34,39 @@ def process_raw_to_silver(spark, file_name, schema, clean_function):
     print("Sucesso!\n")
 
 def clean_customers(df):
-    df.show(5)
-    df.printSchema(1)
-    print(df.count() - df.dropDuplicates().count())
-    df.select([F.sum(F.when(F.col(c).isNull() | F.isnan(c), 1).otherwise(0)).alias(c) for c in df.columns]).show()
-    print(df.select('customer_state').distinct().count())
-
-    df_teste = df.withColumn("cidade_trim", F.trim(F.col("customer_city"))) \
-                .withColumn("cidade_lower", F.lower(F.col("customer_city"))) \
-                .withColumn("cidade_perfeita", F.lower(F.trim(F.col("customer_city"))))
-
-    print("Distintos Originais:", df_teste.select("customer_city").distinct().count())
-    print("Distintos só com Trim:", df_teste.select("cidade_trim").distinct().count())
-    print("Distintos só com Lower:", df_teste.select("cidade_lower").distinct().count())
-    print("Distintos Combinados (Lower + Trim):", df_teste.select("cidade_perfeita").distinct().count())
-
+# O profiling confirmou que a tabela de cadastro não possui nulos ou duplicatas.
+    # Passagem direta de Raw para Silver.
     return df 
 
+def clean_orders(df):
+    regra_fantasmas = (((F.col("order_status") == "delivered") 
+                          & (F.col("order_delivered_customer_date").isNull())))
+    
+    regra_sem_pagamento = ((F.col("order_status") == "delivered") &
+                              (F.col("order_approved_at").isNull()))
+    
+    regra_teletransporte =  ((F.col("order_status") == "delivered") & 
+                               (F.col("order_delivered_carrier_date").isNull()))
+    df = df.filter(~regra_fantasmas) \
+            .filter(~regra_sem_pagamento) \
+            .filter(~regra_teletransporte) 
+    regra_tempo_irreal = (F.col("order_delivered_customer_date") < F.col("order_purchase_timestamp"))
+    print(df.filter(regra_tempo_irreal).count())
+
+    return df
 
 
 if __name__ == "__main__":
     spark = get_spark_session()
-    
-    process_raw_to_silver(
-        spark=spark,
-        file_name="olist_customers_dataset.csv", 
-        schema=schema_customers,                 
-        clean_function=clean_customers           
-    )
+
+    raw_values = [{"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
+                  {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders}]
+
+    for raw_dict in raw_values:
+        process_raw_to_silver(
+            spark=spark,
+            file_name=raw_dict["file_name"],
+            schema=raw_dict["schema"],                 
+            clean_function=raw_dict["clean_function"]     
+            )
+ 
