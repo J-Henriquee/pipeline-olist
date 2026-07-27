@@ -36,6 +36,18 @@ def process_raw_to_silver(spark, file_name, schema, clean_function):
 def clean_customers(df):
     df.show(5)
     df.printSchema(1)
+    print(df.count() - df.dropDuplicates().count())
+    df.select([F.sum(F.when(F.col(c).isNull() | F.isnan(c), 1).otherwise(0)).alias(c) for c in df.columns]).show()
+    print(df.select('customer_state').distinct().count())
+
+    df_teste = df.withColumn("cidade_trim", F.trim(F.col("customer_city"))) \
+                .withColumn("cidade_lower", F.lower(F.col("customer_city"))) \
+                .withColumn("cidade_perfeita", F.lower(F.trim(F.col("customer_city"))))
+
+    print("Distintos Originais:", df_teste.select("customer_city").distinct().count())
+    print("Distintos só com Trim:", df_teste.select("cidade_trim").distinct().count())
+    print("Distintos só com Lower:", df_teste.select("cidade_lower").distinct().count())
+    print("Distintos Combinados (Lower + Trim):", df_teste.select("cidade_perfeita").distinct().count())
 
     return df 
 
