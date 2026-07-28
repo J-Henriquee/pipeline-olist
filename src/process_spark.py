@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from schemas import schema_customers, schema_orders, schema_category_translation, schema_geolocation, schema_order_items, schema_order_payments, schema_order_reviews, schema_products, schema_sellers
 import pyspark.sql.functions as F
+
+
 def get_spark_session():
     # Carrega suas chaves da AWS do .env
     load_dotenv()
@@ -61,13 +63,32 @@ def clean_order_items(df):
 
     return df
 
+def clean_products(df, df_translation):
+    colunas_medidas = ["product_weight_g", "product_length_cm", "product_height_cm", "product_width_cm"]
+    for coluna in colunas_medidas:
+            df = df.withColumn(
+                coluna, 
+                F.when(F.col(coluna) <= 0, F.lit(None)).otherwise(F.col(coluna))
+            )
+    df_limpo = df.join(df_translation, on="product_category_name", how="left")
+
+    df_limpo = df_limpo.drop("product_category_name") \
+                        .withColumnRenamed("product_category_name_english", "product_category_name")
+
+    return df_limpo
+
+
+
 
 if __name__ == "__main__":
     spark = get_spark_session()
-
+    path_translation = "s3a://olist-datalake-nean/raw/olist/product_category_name_translation.csv" 
+    df_translation = spark.read.csv(path_translation, schema=schema_category_translation, header=True)
+    # Lendo a tabela de tradução lá do seu bucket Raw
     raw_values = [{"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
                   {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
-                  {"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items}]
+                  {"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
+                  {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)}]
 
     for raw_dict in raw_values:
         process_raw_to_silver(
