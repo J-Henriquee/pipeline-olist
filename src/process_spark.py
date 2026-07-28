@@ -50,8 +50,14 @@ def clean_orders(df):
     df = df.filter(~regra_fantasmas) \
             .filter(~regra_sem_pagamento) \
             .filter(~regra_teletransporte) 
-    regra_tempo_irreal = (F.col("order_delivered_customer_date") < F.col("order_purchase_timestamp"))
-    print(df.filter(regra_tempo_irreal).count())
+    return df
+
+def clean_order_items(df):
+    # PROFILING REALIZADO:
+    # 1. Zero nulos encontrados.
+    # 2. Zero duplicatas na chave composta (order_id, order_item_id).
+    # 3. Sanidade financeira validada (Nenhum price <= 0 ou freight_value < 0).
+    # Tabela íntegra. Passagem direta para a Silver.
 
     return df
 
@@ -60,7 +66,8 @@ if __name__ == "__main__":
     spark = get_spark_session()
 
     raw_values = [{"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
-                  {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders}]
+                  {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
+                  {"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items}]
 
     for raw_dict in raw_values:
         process_raw_to_silver(
