@@ -81,10 +81,19 @@ def clean_products(df, df_translation):
 def clean_sellers(df):
     df = df.withColumn('seller_city', F.lower(F.trim(F.col("seller_city"))))
     df_limpo = df.withColumn('seller_state', F.upper(F.trim(F.col("seller_state"))))
+    df_limpo = df_limpo.dropDuplicates(["seller_id"])
     df_limpo.show(5)
     return df_limpo
 
+def clean_order_payments(df):
+    df_limpo =  df.filter((F.col("payment_value") > 0) & (F.col("payment_type") != "not_defined"))
+    return df_limpo
 
+def clean_geolocation(df):
+    print(df.count())
+    print(df.select("geolocation_zip_code_prefix").distinct().count())
+    return df
+    
 
 
 
@@ -98,7 +107,10 @@ if __name__ == "__main__":
                   #{"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
                   #{"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
                  # {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)},
-                  {"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers}]
+                  #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers},
+                #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers}
+                #                {"file_name": "olist_order_payments_dataset.csv", "schema": schema_order_payments, "clean_function": clean_order_payments}
+                {"file_name": "olist_geolocation_dataset.csv", "schema": schema_geolocation, "clean_function": clean_geolocation} ]
 
     for raw_dict in raw_values:
         process_raw_to_silver(
@@ -107,4 +119,11 @@ if __name__ == "__main__":
             schema=raw_dict["schema"],                 
             clean_function=raw_dict["clean_function"]     
             )
+
+
+
+
+
+
+
  
