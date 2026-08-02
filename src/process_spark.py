@@ -97,6 +97,12 @@ def clean_geolocation(df):
     return df_limpo
     
 
+def clean_order_reviews(df):
+    df.select('review_score').distinct().show()
+    print(df.filter(F.col("review_comment_message").isNull()).count())
+    return df
+    
+
 
 
 
@@ -112,7 +118,8 @@ if __name__ == "__main__":
                   #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers},
                 #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers}
                 #                {"file_name": "olist_order_payments_dataset.csv", "schema": schema_order_payments, "clean_function": clean_order_payments}
-                {"file_name": "olist_geolocation_dataset.csv", "schema": schema_geolocation, "clean_function": clean_geolocation} ]
+                # {"file_name": "olist_geolocation_dataset.csv", "schema": schema_geolocation, "clean_function": clean_geolocation}
+                 {"file_name": "olist_order_reviews_dataset.csv", "schema": schema_order_reviews, "clean_function": clean_order_reviews}]
 
     for raw_dict in raw_values:
         process_raw_to_silver(
