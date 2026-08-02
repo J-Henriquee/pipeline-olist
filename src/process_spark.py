@@ -90,9 +90,11 @@ def clean_order_payments(df):
     return df_limpo
 
 def clean_geolocation(df):
-    print(df.count())
-    print(df.select("geolocation_zip_code_prefix").distinct().count())
-    return df
+    df = df.dropDuplicates(["geolocation_zip_code_prefix"])   
+    df = df.withColumn('geolocation_city', F.lower(F.trim(F.col("geolocation_city"))))
+    df_limpo = df.withColumn('geolocation_state', F.upper(F.trim(F.col("geolocation_state"))))
+
+    return df_limpo
     
 
 
