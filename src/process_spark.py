@@ -78,6 +78,15 @@ def clean_products(df, df_translation):
     return df_limpo
 
 
+def clean_sellers(df):
+    df = df.withColumn('seller_city', F.lower(F.trim(F.col("seller_city"))))
+    df_limpo = df.withColumn('seller_state', F.upper(F.trim(F.col("seller_state"))))
+    df_limpo.show(5)
+    return df_limpo
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -85,10 +94,11 @@ if __name__ == "__main__":
     path_translation = "s3a://olist-datalake-nean/raw/olist/product_category_name_translation.csv" 
     df_translation = spark.read.csv(path_translation, schema=schema_category_translation, header=True)
     # Lendo a tabela de tradução lá do seu bucket Raw
-    raw_values = [{"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
-                  {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
-                  {"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
-                  {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)}]
+    raw_values = [# {"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
+                  #{"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
+                  #{"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
+                 # {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)},
+                  {"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers}]
 
     for raw_dict in raw_values:
         process_raw_to_silver(
