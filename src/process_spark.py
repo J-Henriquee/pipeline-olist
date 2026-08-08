@@ -49,9 +49,21 @@ def clean_orders(df):
     
     regra_teletransporte =  ((F.col("order_status") == "delivered") & 
                                (F.col("order_delivered_carrier_date").isNull()))
+    
     df = df.filter(~regra_fantasmas) \
-            .filter(~regra_sem_pagamento) \
-            .filter(~regra_teletransporte) 
+           .filter(~regra_sem_pagamento) \
+           .filter(~regra_teletransporte) 
+           
+    colunas_data = [
+        "order_purchase_timestamp",
+        "order_approved_at",
+        "order_delivered_carrier_date",
+        "order_delivered_customer_date",
+        "order_estimated_delivery_date"
+    ]
+    for col in colunas_data:
+        df = df.withColumn(col, F.to_timestamp(F.col(col)))
+        
     return df
 
 def clean_order_items(df):
@@ -64,19 +76,26 @@ def clean_order_items(df):
     return df
 
 def clean_products(df, df_translation):
-    colunas_medidas = ["product_weight_g", "product_length_cm", "product_height_cm", "product_width_cm"]
-    for coluna in colunas_medidas:
-            df = df.withColumn(
-                coluna, 
-                F.when(F.col(coluna) <= 0, F.lit(None)).otherwise(F.col(coluna))
-            )
+    # 1. Resolve o join e o nome da categoria primeiro
     df_limpo = df.join(df_translation, on="product_category_name", how="left")
-
     df_limpo = df_limpo.drop("product_category_name") \
-                        .withColumnRenamed("product_category_name_english", "product_category_name")
+                       .withColumnRenamed("product_category_name_english", "product_category_name")
 
-    return df_limpo
+    # 2. SELEÇÃO EXPLÍCITA: Crava a tipagem (cast) e a ORDEM EXATA das colunas
+    # Tratando os zeros e garantindo que até o nulo seja lido como Inteiro (INT32)
+    df_final = df_limpo.select(
+        F.col("product_id").cast("string"),
+        F.col("product_category_name").cast("string"),
+        F.col("product_name_lenght").cast("integer"),
+        F.col("product_description_lenght").cast("integer"),
+        F.col("product_photos_qty").cast("integer"),
+        F.when(F.col("product_weight_g").cast("integer") <= 0, F.lit(None).cast("integer")).otherwise(F.col("product_weight_g").cast("integer")).alias("product_weight_g"),
+        F.when(F.col("product_length_cm").cast("integer") <= 0, F.lit(None).cast("integer")).otherwise(F.col("product_length_cm").cast("integer")).alias("product_length_cm"),
+        F.when(F.col("product_height_cm").cast("integer") <= 0, F.lit(None).cast("integer")).otherwise(F.col("product_height_cm").cast("integer")).alias("product_height_cm"),
+        F.when(F.col("product_width_cm").cast("integer") <= 0, F.lit(None).cast("integer")).otherwise(F.col("product_width_cm").cast("integer")).alias("product_width_cm")
+    )
 
+    return df_final
 
 def clean_sellers(df):
     df = df.withColumn('seller_city', F.lower(F.trim(F.col("seller_city"))))
@@ -98,9 +117,8 @@ def clean_geolocation(df):
     
 
 def clean_order_reviews(df):
-    df.select('review_score').distinct().show()
-    print(df.filter(F.col("review_comment_message").isNull()).count())
-    return df
+    df_limpo = df.filter(F.col("review_score").between(1, 5))
+    return df_limpo
     
 
 
@@ -111,14 +129,13 @@ if __name__ == "__main__":
     path_translation = "s3a://olist-datalake-nean/raw/olist/product_category_name_translation.csv" 
     df_translation = spark.read.csv(path_translation, schema=schema_category_translation, header=True)
     # Lendo a tabela de tradução lá do seu bucket Raw
-    raw_values = [# {"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
-                  #{"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
-                  #{"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
-                 # {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)},
-                  #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers},
-                #{"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers}
-                #                {"file_name": "olist_order_payments_dataset.csv", "schema": schema_order_payments, "clean_function": clean_order_payments}
-                # {"file_name": "olist_geolocation_dataset.csv", "schema": schema_geolocation, "clean_function": clean_geolocation}
+    raw_values = [{"file_name": "olist_customers_dataset.csv", "schema": schema_customers, "clean_function": clean_customers}, 
+                  {"file_name": "olist_orders_dataset.csv", "schema": schema_orders, "clean_function": clean_orders},
+                  {"file_name": "olist_order_items_dataset.csv", "schema": schema_order_items, "clean_function": clean_order_items},
+                 {"file_name": "olist_products_dataset.csv", "schema": schema_products, "clean_function": lambda df: clean_products(df, df_translation)},
+                  {"file_name": "olist_sellers_dataset.csv", "schema": schema_sellers, "clean_function": clean_sellers},
+                                {"file_name": "olist_order_payments_dataset.csv", "schema": schema_order_payments, "clean_function": clean_order_payments},
+                {"file_name": "olist_geolocation_dataset.csv", "schema": schema_geolocation, "clean_function": clean_geolocation},
                  {"file_name": "olist_order_reviews_dataset.csv", "schema": schema_order_reviews, "clean_function": clean_order_reviews}]
 
     for raw_dict in raw_values:
