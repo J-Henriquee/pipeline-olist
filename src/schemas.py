@@ -1,3 +1,13 @@
+"""
+schemas.py
+
+Explicit PySpark schemas for all 9 raw Olist CSV files.
+
+Defining schemas manually (instead of using inferSchema=True) makes
+reads deterministic and fast, and documents the expected structure of
+each raw table up front.
+"""
+
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, TimestampType
 
 # 1. olist_customers_dataset.csv
@@ -83,6 +93,8 @@ schema_sellers = StructType([
 ])
 
 # 9. product_category_name_translation.csv
+# Used to translate product_category_name from Portuguese to English
+# during the products cleaning step.
 schema_category_translation = StructType([
     StructField("product_category_name", StringType(), True),
     StructField("product_category_name_english", StringType(), True)
